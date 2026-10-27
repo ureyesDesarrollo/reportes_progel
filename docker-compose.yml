@@ -1,0 +1,25 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: reportes_progel_app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8083}:80"
+    environment:
+      TZ: ${TZ:-America/Mexico_City}
+      AVEVA_DB_HOST: ${AVEVA_DB_HOST:-}
+      AVEVA_DB_PORT: ${AVEVA_DB_PORT:-1433}
+      AVEVA_DB_NAME: ${AVEVA_DB_NAME:-}
+      AVEVA_DB_USER: ${AVEVA_DB_USER:-}
+      AVEVA_DB_PASS: ${AVEVA_DB_PASS:-}
+      AVEVA_DB_ENCRYPT: ${AVEVA_DB_ENCRYPT:-false}
+      AVEVA_DB_TRUST_SERVER_CERTIFICATE: ${AVEVA_DB_TRUST_SERVER_CERTIFICATE:-true}
+      AVEVA_DB_LOGIN_TIMEOUT: ${AVEVA_DB_LOGIN_TIMEOUT:-5}
+      AVEVA_DB_TABLE: ${AVEVA_DB_TABLE:-TREND001}
+      AVEVA_DB_TIMESTAMP_FIELD: ${AVEVA_DB_TIMESTAMP_FIELD:-Time_Stamp}
+      VOTATORS_REFRESH_MS: ${VOTATORS_REFRESH_MS:-60000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
