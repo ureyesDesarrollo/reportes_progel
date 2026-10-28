@@ -126,6 +126,63 @@ $evaluateMetricStatus = static function (?float $value, array $rule): array {
   return ['label' => 'Critico', 'key' => 'rojo', 'color' => '#c94436', 'class' => 'danger'];
 };
 
+/*
+ * Calcula una sola instrucción operativa para llevar la lectura al rango verde.
+ * La vista únicamente presenta estos datos; no conoce ni repite los rangos.
+ */
+$calculateAdjustmentToGreen = static function (?float $value, array $rule): array {
+  if ($value === null || $rule === []) {
+    return ['direction' => '', 'formatted' => ''];
+  }
+
+  $greenBands = [];
+  $mode = (string)($rule['modo'] ?? 'rango');
+  if ($mode === 'bandas') {
+    foreach ((array)($rule['bandas'] ?? []) as $band) {
+      if (($band['estado'] ?? '') !== 'verde') {
+        continue;
+      }
+      $greenBands[] = [
+        'min' => isset($band['min']) && is_numeric($band['min']) ? (float)$band['min'] : null,
+        'max' => isset($band['max']) && is_numeric($band['max']) ? (float)$band['max'] : null,
+      ];
+    }
+  } else {
+    $greenBands[] = [
+      'min' => $mode === 'maximo' ? null : (isset($rule['verde_min']) && is_numeric($rule['verde_min']) ? (float)$rule['verde_min'] : null),
+      'max' => $mode === 'minimo' ? null : (isset($rule['verde_max']) && is_numeric($rule['verde_max']) ? (float)$rule['verde_max'] : null),
+    ];
+  }
+
+  $direction = '';
+  $distance = INF;
+  foreach ($greenBands as $band) {
+    $min = $band['min'];
+    $max = $band['max'];
+    if (($min === null || $value >= $min) && ($max === null || $value <= $max)) {
+      return ['direction' => '', 'formatted' => ''];
+    }
+    if ($min !== null && $value < $min && ($min - $value) < $distance) {
+      $direction = 'up';
+      $distance = $min - $value;
+    }
+    if ($max !== null && $value > $max && ($value - $max) < $distance) {
+      $direction = 'down';
+      $distance = $value - $max;
+    }
+  }
+
+  if ($direction === '' || !is_finite($distance)) {
+    return ['direction' => '', 'formatted' => ''];
+  }
+
+  $required = ceil(max(0.0, $distance - 0.000000001) * 10) / 10;
+  return [
+    'direction' => $direction,
+    'formatted' => number_format(max(0.1, $required), 1, '.', ','),
+  ];
+};
+
 $formatValue = static function (?float $value, int $decimals, string $unit): string {
   if ($value === null) {
     return '-';
@@ -412,29 +469,36 @@ foreach ($concentratorConfig as $concentratorKey => $concentrator) {
 
     $rule = (array)($semaforos[$concentratorKey][$metricKey] ?? $semaforos[$metricKey] ?? []);
     $aplicarFo = $fueraOperacion && $source !== 'sqlserver';
+    $sensorFo = $source === 'sqlserver' && $numericValue !== null && $numericValue <= 0.0;
+    $metricFo = $aplicarFo || $sensorFo;
     if ($aplicarFo) {
       $numericValue = null;
     }
 
-    $status = $aplicarFo
-      ? ['label' => 'Fuera de operacion', 'key' => 'gris', 'color' => '#94a3b8', 'class' => 'unavailable']
+    $status = $metricFo
+      ? ['label' => 'F.O.', 'key' => 'gris', 'color' => '#94a3b8', 'class' => 'unavailable']
       : $evaluateMetricStatus($numericValue, $rule);
     $decimals = (int)($metric['decimals'] ?? 2);
     $unit = (string)($metric['unit'] ?? '');
+    $adjustment = $metricFo
+      ? ['direction' => '', 'formatted' => '']
+      : $calculateAdjustmentToGreen($numericValue, $rule);
 
     $metrics[$metricKey] = [
       'key' => $metricKey,
       'label' => (string)($metric['label'] ?? $metricKey),
       'value' => $numericValue,
-      'formatted' => $formatValue($numericValue, $decimals, $unit),
+      'formatted' => $metricFo ? 'F.O.' : $formatValue($numericValue, $decimals, $unit),
       'unit' => $unit,
       'source' => $source,
       'source_column' => $sourceColumn,
       'status' => $status,
-      'leyenda' => (string)($metric['leyenda'] ?? ($rule['leyenda'] ?? '')),
-      'history' => $aplicarFo ? [] : $historyRows,
+      'direction' => $adjustment['direction'],
+      'adjustment' => $adjustment['formatted'],
+      'leyenda' => $metricFo ? '' : (string)($metric['leyenda'] ?? ($rule['leyenda'] ?? '')),
+      'history' => $metricFo ? [] : $historyRows,
       'trends' => [
-        'month' => (!$aplicarFo && $source === 'sqlserver' && $sourceColumn !== '') ? (array)($flowMonthHistoryByField[$sourceColumn] ?? []) : [],
+        'month' => (!$metricFo && $source === 'sqlserver' && $sourceColumn !== '') ? (array)($flowMonthHistoryByField[$sourceColumn] ?? []) : [],
       ],
     ];
   }

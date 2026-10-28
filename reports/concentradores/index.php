@@ -22,6 +22,10 @@ try {
 
 $titulo = (string)($report['titulo'] ?? 'Concentradores');
 $concentradores = (array)($report['concentradores'] ?? []);
+$visibleEquipment = array_fill_keys((array)($config['equipos_vista_principal'] ?? []), true);
+$mainConcentradores = $visibleEquipment !== []
+  ? array_intersect_key($concentradores, $visibleEquipment)
+  : array_diff_key($concentradores, ['invertido' => true]);
 $meta = (array)($report['meta'] ?? []);
 $version = (int)($report['version'] ?? time());
 $e = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -29,20 +33,20 @@ $metricClass = static function (array $metric): string {
   $class = (string)($metric['status']['class'] ?? 'unavailable');
   return preg_match('/^[a-z0-9-]+$/', $class) === 1 ? $class : 'unavailable';
 };
-$metricIcon = static function (string $metricKey): string {
-  return [
-    'flujo' => 'fa-water',
-    'temperatura' => 'fa-temperature-half',
-    'vacio' => 'fa-gauge-high',
-    'solidos_entrada' => 'fa-arrow-right-to-bracket',
-    'solidos_salida' => 'fa-arrow-right-from-bracket',
-  ][$metricKey] ?? 'fa-flask';
-};
-$sourceIcon = static function (array $metric): string {
-  return (string)($metric['source'] ?? '') === 'sqlserver' ? 'fa-gear' : 'fa-book-open';
-};
-$sourceTitle = static function (array $metric): string {
-  return (string)($metric['source'] ?? '') === 'sqlserver' ? 'SQL Server / AVEVA' : 'MySQL 105';
+$renderDirection = static function (array $metric) use ($e): string {
+  $direction = in_array(($metric['direction'] ?? ''), ['up', 'down'], true)
+    ? (string)$metric['direction']
+    : '';
+  $adjustment = $direction !== '' ? trim((string)($metric['adjustment'] ?? '')) : '';
+  $action = $direction === 'up' ? 'Subir' : ($direction === 'down' ? 'Bajar' : '');
+  $arrow = $direction === 'up' ? '↑' : ($direction === 'down' ? '↓' : '');
+  $label = $direction !== '' ? $action . ' ' . $adjustment . ' para llegar a verde' : 'En rango verde';
+
+  return '<span class="concentradores-direction' . ($direction !== '' ? ' is-visible direction-' . $e($direction) : '')
+    . '" title="' . $e($label) . '" aria-label="' . $e($label) . '">'
+    . '<strong data-direction-arrow>' . $e($arrow) . '</strong>'
+    . '<span><em data-direction-action>' . $e($action) . '</em><b data-direction-value>' . $e($adjustment) . '</b></span>'
+    . '</span>';
 };
 $invertidoMetricGroups = [
   'General' => [
@@ -84,6 +88,7 @@ $invertidoMetricGroups = [
     'valvula_control_presion',
   ],
 ];
+$primaryMetricKeys = array_fill_keys(['flujo', 'temperatura', 'solidos_entrada', 'solidos_salida'], true);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -93,7 +98,6 @@ $invertidoMetricGroups = [
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title><?= $e($titulo) ?></title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="../../assets/css/dashboard.css?v=<?= urlencode((string)$version) ?>">
   <script src="../../assets/js/display-mode.js?v=<?= urlencode((string)max($version, (int)(@filemtime(__DIR__ . '/../../assets/js/display-mode.js') ?: 0))) ?>"></script>
   <style>
@@ -112,28 +116,28 @@ $invertidoMetricGroups = [
       --cc-gray: #64748b;
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; background: var(--cc-bg); }
+    html, body { margin: 0; min-width: 1280px; min-height: 100%; background: var(--cc-bg); }
     body { color: var(--cc-text); font-family: Inter, Arial, Helvetica, sans-serif; }
-    .dashboard { width: 100%; min-height: 100vh; padding: 10px; background: var(--cc-bg); }
+    .dashboard {
+      display: flex;
+      width: 100vw !important;
+      max-width: none !important;
+      min-width: 1280px;
+      min-height: 100vh;
+      flex-direction: column;
+      margin: 0 !important;
+      padding: 8px !important;
+      background: var(--cc-bg);
+    }
     .concentradores-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 14px;
-      margin-bottom: 10px;
-    }
-    .concentradores-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
-    .concentradores-heading-icon {
-      display: grid;
       flex: 0 0 auto;
-      width: 44px;
-      height: 44px;
-      place-items: center;
-      border-radius: 12px;
-      color: #08131b;
-      background: #f4f7fa;
-      font-size: 22px;
+      margin-bottom: 7px;
     }
+    .concentradores-heading { display: flex; align-items: center; min-width: 0; }
     .concentradores-heading h1 { margin: 0; font-size: clamp(28px, 2.2vw, 40px); line-height: 1; }
     .concentradores-heading p { margin: 4px 0 0; color: var(--cc-muted); font-size: clamp(13px, 1vw, 17px); }
     .concentradores-header-actions { display: flex; align-items: center; gap: 9px; }
@@ -150,7 +154,7 @@ $invertidoMetricGroups = [
     .concentradores-exec-warning {
       display: flex;
       align-items: center;
-      gap: 9px;
+      gap: 0;
       margin-bottom: 9px;
       padding: 9px 12px;
       border-radius: 10px;
@@ -161,40 +165,52 @@ $invertidoMetricGroups = [
     }
     .concentradores-exec-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-      align-items: start;
+      min-height: 0;
+      flex: 1 1 auto;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      align-items: stretch;
     }
     .concentradores-exec-panel {
       min-width: 0;
       overflow: hidden;
-      padding: 9px;
+      padding: 7px;
       border: 1px solid var(--cc-line);
       border-radius: 15px;
       background: var(--cc-panel);
     }
-    .concentradores-exec-panel[data-concentrator="invertido"] { grid-column: 1 / -1; }
+    .concentradores-exec-panel[data-concentrator="invertido"] { display: none; grid-column: 1 / -1; }
+    .concentradores-exec-grid.is-invertido-screen {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+    }
+    .concentradores-exec-grid.is-invertido-screen > .concentradores-exec-panel:not([data-concentrator="invertido"]) { display: none; }
+    .concentradores-exec-grid.is-invertido-screen > .concentradores-exec-panel[data-concentrator="invertido"] {
+      display: block;
+      height: 100%;
+    }
     .concentradores-exec-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      margin: -9px -9px 9px;
-      padding: 10px 12px;
+      margin: -7px -7px 6px;
+      padding: 7px 10px;
       border-bottom: 1px solid var(--cc-line);
       background: #1d3442;
     }
-    .concentradores-exec-head.ok { background: var(--cc-green); }
-    .concentradores-exec-head.warning { color: #111827; background: var(--cc-yellow); }
-    .concentradores-exec-head.danger { background: var(--cc-red); }
+    .concentradores-exec-head.ok,
+    .concentradores-exec-head.warning,
+    .concentradores-exec-head.danger,
     .concentradores-exec-head.neutral,
-    .concentradores-exec-head.info { background: var(--cc-blue); }
-    .concentradores-exec-head.unavailable { background: var(--cc-gray); }
-    .concentradores-exec-head h2 { margin: 0; color: inherit; font-size: clamp(25px, 1.8vw, 34px); line-height: 1; }
+    .concentradores-exec-head.info,
+    .concentradores-exec-head.unavailable { color: var(--cc-text); background: var(--cc-inner); }
+    .concentradores-exec-head h2 { margin: 0; color: inherit; font-size: clamp(23px, 1.55vw, 30px); line-height: 1; }
     .concentradores-exec-head span {
       display: inline-flex;
       min-width: 38px;
-      min-height: 25px;
+      min-height: 22px;
       align-items: center;
       justify-content: center;
       padding: 4px 9px;
@@ -205,19 +221,40 @@ $invertidoMetricGroups = [
       font-weight: 900;
     }
     .concentradores-exec-head span.is-offline { background: rgba(15,23,42,.34); }
-    .concentradores-exec-metrics {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 7px;
+    .concentradores-exec-head.ok span { background: var(--cc-green); }
+    .concentradores-exec-head.warning span { color: #111827; background: var(--cc-yellow); }
+    .concentradores-exec-head.danger span { background: var(--cc-red); }
+    .concentradores-exec-head.neutral span,
+    .concentradores-exec-head.info span { background: var(--cc-blue); }
+    .concentradores-exec-head.unavailable span { background: var(--cc-gray); }
+    .concentradores-section-title {
+      margin: 5px 2px 4px;
+      color: var(--cc-muted);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
     }
+    .concentradores-primary-metrics,
+    .concentradores-secondary-metrics {
+      display: grid;
+      gap: 5px;
+    }
+    .concentradores-primary-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .concentradores-secondary-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .concentradores-secondary-metrics[data-count="10"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .concentradores-secondary-metrics[data-count="9"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .concentradores-secondary-metrics[data-count="11"] { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+    .concentradores-secondary-metrics[data-count="11"] > .concentradores-exec-metric { grid-column: span 3; }
+    .concentradores-secondary-metrics[data-count="11"] > .concentradores-exec-metric:nth-last-child(-n + 3) { grid-column: span 4; }
     .concentradores-exec-metric {
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
       align-items: center;
-      gap: 9px;
+      gap: 0;
       min-width: 0;
-      min-height: 82px;
-      padding: 7px 8px;
+      min-height: 70px;
+      padding: 6px 7px;
       border: 1px solid #28577e;
       border-radius: 11px;
       color: var(--cc-text);
@@ -230,23 +267,12 @@ $invertidoMetricGroups = [
     .concentradores-exec-metric.neutral,
     .concentradores-exec-metric.info { border-color: #2563eb; background: var(--cc-blue); }
     .concentradores-exec-metric.unavailable { border-color: var(--cc-gray); background: #334653; }
-    .concentradores-exec-metric > i {
-      display: grid;
-      width: 34px;
-      height: 34px;
-      place-items: center;
-      border-radius: 9px;
-      color: currentColor;
-      background: rgba(255,255,255,.18);
-      font-size: 17px;
-    }
-    .concentradores-exec-metric.warning > i { background: rgba(255,255,255,.45); }
     .concentradores-exec-metric-body { min-width: 0; }
     .concentradores-exec-metric-label {
       display: flex;
       align-items: flex-start;
-      justify-content: space-between;
-      gap: 5px;
+      justify-content: flex-start;
+      gap: 0;
       min-width: 0;
       font-size: clamp(11px, .68vw, 13px);
       font-weight: 900;
@@ -255,18 +281,8 @@ $invertidoMetricGroups = [
     }
     .concentradores-exec-metric-label > [data-field="label"] {
       min-width: 0;
-      overflow-wrap: anywhere;
+      overflow-wrap: normal;
     }
-    .concentradores-exec-source {
-      display: grid;
-      flex: 0 0 auto;
-      width: 17px;
-      height: 17px;
-      place-items: center;
-      border-radius: 999px;
-      background: rgba(255,255,255,.2);
-    }
-    .concentradores-exec-source i { font-size: 9px; }
     .concentradores-exec-metric-value {
       max-width: 100%;
       overflow: hidden;
@@ -278,22 +294,65 @@ $invertidoMetricGroups = [
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .concentradores-exec-metric-status {
+    .concentradores-exec-reading {
       display: flex;
-      flex-wrap: wrap;
-      gap: 3px 8px;
-      margin-top: 5px;
-      padding-top: 4px;
-      border-top: 1px solid rgba(255,255,255,.28);
-      font-size: 10px;
-      font-weight: 800;
-      line-height: 1.15;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
     }
-    .concentradores-exec-metric.warning .concentradores-exec-metric-status { border-top-color: rgba(17,24,39,.24); }
-    .concentradores-exec-range { opacity: .88; }
+    .concentradores-direction {
+      display: none;
+      flex: 0 0 auto;
+      min-width: 78px;
+      height: 52px;
+      padding: 4px 8px;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border: 2px solid #fff;
+      border-radius: 10px;
+      color: #fff;
+      background: #172c3a;
+      box-shadow: 0 0 0 2px rgba(255,255,255,.15);
+    }
+    .concentradores-direction.is-visible { display: inline-flex; }
+    .concentradores-direction > strong {
+      font-size: 34px;
+      font-weight: 950;
+      line-height: .8;
+    }
+    .concentradores-direction > span { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
+    .concentradores-direction em {
+      color: #fff;
+      font-size: 10px;
+      font-style: normal;
+      font-weight: 950;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .concentradores-direction b { color: #fff; font-size: 18px; font-variant-numeric: tabular-nums; font-weight: 950; }
+    .concentradores-primary-metrics .concentradores-direction { min-width: 74px; height: 62px; padding-inline: 5px; gap: 3px; }
+    .concentradores-primary-metrics .concentradores-direction > strong { font-size: 38px; }
+    .concentradores-primary-metrics .concentradores-direction em { font-size: 9px; }
+    .concentradores-primary-metrics .concentradores-direction b { font-size: 19px; }
+    .concentradores-primary-metrics .concentradores-exec-metric:has(.concentradores-direction.is-visible) .concentradores-exec-metric-value {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-size: clamp(24px, 1.4vw, 27px);
+    }
+    .concentradores-primary-metrics .concentradores-exec-metric[data-metric^="solidos"]:has(.concentradores-direction.is-visible) .concentradores-exec-metric-value {
+      font-size: 22px;
+    }
+    .concentradores-primary-metrics .concentradores-exec-metric { min-height: 104px; padding: 8px 10px; }
+    .concentradores-primary-metrics .concentradores-exec-metric-label { font-size: clamp(15px, 1vw, 19px); }
+    .concentradores-primary-metrics .concentradores-exec-metric-value { font-size: clamp(35px, 2.5vw, 48px); }
+    .concentradores-secondary-metrics .concentradores-exec-metric { min-height: 72px; }
     .concentradores-invertido-layout {
       display: grid;
+      height: calc(100% - 44px);
       grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
       gap: 8px;
     }
     .concentradores-stage {
@@ -317,26 +376,13 @@ $invertidoMetricGroups = [
     .concentradores-exec-panel[data-concentrator="invertido"] .concentradores-exec-metric { min-height: 82px; }
     .concentradores-exec-panel[data-concentrator="invertido"] .concentradores-exec-metric-value { font-size: clamp(19px, 1.35vw, 25px); }
     body.display-mode .dashboard { padding: 8px; }
-    @media (max-width: 1500px) {
-      .concentradores-exec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .concentradores-invertido-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    @media (min-width: 1280px) and (min-height: 900px) {
+      html, body { height: 100%; overflow: hidden; }
+      .dashboard { height: 100vh; min-height: 0; overflow: hidden; }
     }
-    @media (max-width: 820px) {
-      .dashboard { padding: 7px; }
-      .concentradores-header { align-items: flex-start; }
-      .concentradores-heading-icon, .concentradores-count { display: none; }
-      .concentradores-heading h1 { font-size: 28px; }
-      .concentradores-heading p { font-size: 12px; }
-      .back-btn { padding: 7px 10px; }
-      .concentradores-exec-grid,
-      .concentradores-invertido-layout { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 520px) {
-      .concentradores-exec-metrics,
-      .concentradores-stage-metrics { grid-template-columns: 1fr; }
-      .concentradores-exec-metric { min-height: 88px; }
-      .concentradores-header-actions { align-self: center; }
-      .back-btn span { display: none; }
+    @media (max-width: 1599px) {
+      .concentradores-primary-metrics .concentradores-exec-metric-label { font-size: 14px; }
+      .concentradores-primary-metrics .concentradores-exec-metric-value { font-size: 30px; }
     }
   </style>
   <link rel="stylesheet" href="../../assets/css/report-responsive.css?v=<?= urlencode((string)(@filemtime(__DIR__ . '/../../assets/css/report-responsive.css') ?: time())) ?>">
@@ -346,21 +392,20 @@ $invertidoMetricGroups = [
   <div class="dashboard" data-report-responsive>
     <header class="concentradores-header">
       <div class="concentradores-heading">
-        <span class="concentradores-heading-icon"><i class="fas fa-industry"></i></span>
         <div>
-          <h1><?= $e($titulo) ?></h1>
+          <h1 data-screen-title><?= $e($titulo) ?></h1>
           <p>Monitoreo en tiempo real · actualización cada <?= $e((int)ceil(((int)($meta['intervaloActualizacion'] ?? 60000)) / 1000)) ?> s</p>
         </div>
       </div>
       <div class="concentradores-header-actions">
-        <span class="concentradores-count"><?= max(0, count($concentradores) - (isset($concentradores['invertido']) ? 1 : 0)) ?> equipos</span>
-        <a href="../index.php" class="back-btn"><i class="fas fa-arrow-left"></i><span>Regresar</span></a>
+        <span class="concentradores-count" data-screen-count><?= count($mainConcentradores) ?> equipos</span>
+        <a href="../index.php" class="back-btn">Regresar</a>
       </div>
     </header>
 
     <div data-warnings>
       <?php foreach ((array)($meta['warnings'] ?? []) as $warning): ?>
-        <div class="concentradores-exec-warning"><i class="fas fa-triangle-exclamation"></i><?= $e($warning) ?></div>
+        <div class="concentradores-exec-warning"><?= $e($warning) ?></div>
       <?php endforeach; ?>
     </div>
 
@@ -387,16 +432,11 @@ $invertidoMetricGroups = [
                       <?php $metric = (array)$metricas[$metricKey]; ?>
                       <?php $renderedMetrics[$metricKey] = true; ?>
                       <div class="concentradores-exec-metric <?= $e($metricClass($metric)) ?>" data-metric="<?= $e($metricKey) ?>">
-                        <i class="fa-solid <?= $e($metricIcon($metricKey)) ?>"></i>
                         <div class="concentradores-exec-metric-body">
                           <div class="concentradores-exec-metric-label">
                             <span data-field="label"><?= $e($metric['label'] ?? $metricKey) ?></span>
-                            <span class="concentradores-exec-source" data-field="source-icon" title="<?= $e($sourceTitle($metric)) ?>">
-                              <i class="fa-solid <?= $e($sourceIcon($metric)) ?>"></i>
-                            </span>
                           </div>
-                          <div class="concentradores-exec-metric-value" data-field="value"><?= $e($metric['formatted'] ?? '-') ?></div>
-                          <div class="concentradores-exec-metric-status"><span data-field="status"><?= $e($metric['status']['label'] ?? 'Sin dato') ?></span><?php if (trim((string)($metric['leyenda'] ?? '')) !== ''): ?><span class="concentradores-exec-range"><?= $e($metric['leyenda']) ?></span><?php endif; ?></div>
+                          <div class="concentradores-exec-reading"><div class="concentradores-exec-metric-value" data-field="value"><?= $e($metric['formatted'] ?? '-') ?></div><?= $renderDirection($metric) ?></div>
                         </div>
                       </div>
                     <?php endforeach; ?>
@@ -412,16 +452,11 @@ $invertidoMetricGroups = [
                       <?php $metric = (array)$metric; ?>
                       <?php $metricKey = (string)($metric['key'] ?? ''); ?>
                       <div class="concentradores-exec-metric <?= $e($metricClass($metric)) ?>" data-metric="<?= $e($metricKey) ?>">
-                        <i class="fa-solid <?= $e($metricIcon($metricKey)) ?>"></i>
                         <div class="concentradores-exec-metric-body">
                           <div class="concentradores-exec-metric-label">
                             <span data-field="label"><?= $e($metric['label'] ?? $metricKey) ?></span>
-                            <span class="concentradores-exec-source" data-field="source-icon" title="<?= $e($sourceTitle($metric)) ?>">
-                              <i class="fa-solid <?= $e($sourceIcon($metric)) ?>"></i>
-                            </span>
                           </div>
-                          <div class="concentradores-exec-metric-value" data-field="value"><?= $e($metric['formatted'] ?? '-') ?></div>
-                          <div class="concentradores-exec-metric-status"><span data-field="status"><?= $e($metric['status']['label'] ?? 'Sin dato') ?></span><?php if (trim((string)($metric['leyenda'] ?? '')) !== ''): ?><span class="concentradores-exec-range"><?= $e($metric['leyenda']) ?></span><?php endif; ?></div>
+                          <div class="concentradores-exec-reading"><div class="concentradores-exec-metric-value" data-field="value"><?= $e($metric['formatted'] ?? '-') ?></div><?= $renderDirection($metric) ?></div>
                         </div>
                       </div>
                     <?php endforeach; ?>
@@ -430,24 +465,38 @@ $invertidoMetricGroups = [
               <?php endif; ?>
             </div>
           <?php else: ?>
-            <div class="concentradores-exec-metrics">
-              <?php foreach ($metricas as $metric): ?>
+            <?php $primaryMetrics = array_intersect_key($metricas, $primaryMetricKeys); ?>
+            <?php $secondaryMetrics = array_diff_key($metricas, $primaryMetricKeys); ?>
+            <h3 class="concentradores-section-title">Proceso</h3>
+            <div class="concentradores-primary-metrics">
+              <?php foreach ($primaryMetrics as $metric): ?>
                 <?php $metricKey = (string)($metric['key'] ?? ''); ?>
                 <div class="concentradores-exec-metric <?= $e($metricClass((array)$metric)) ?>" data-metric="<?= $e($metricKey) ?>">
-                  <i class="fa-solid <?= $e($metricIcon($metricKey)) ?>"></i>
                   <div class="concentradores-exec-metric-body">
                     <div class="concentradores-exec-metric-label">
                       <span data-field="label"><?= $e($metric['label'] ?? $metricKey) ?></span>
-                      <span class="concentradores-exec-source" data-field="source-icon" title="<?= $e($sourceTitle((array)$metric)) ?>">
-                        <i class="fa-solid <?= $e($sourceIcon((array)$metric)) ?>"></i>
-                      </span>
                     </div>
-                    <div class="concentradores-exec-metric-value" data-field="value"><?= $e($metric['formatted'] ?? '-') ?></div>
-                    <div class="concentradores-exec-metric-status"><span data-field="status"><?= $e($metric['status']['label'] ?? 'Sin dato') ?></span><?php if (trim((string)($metric['leyenda'] ?? '')) !== ''): ?><span class="concentradores-exec-range"><?= $e($metric['leyenda']) ?></span><?php endif; ?></div>
+                    <div class="concentradores-exec-reading"><div class="concentradores-exec-metric-value" data-field="value"><?= $e($metric['formatted'] ?? '-') ?></div><?= $renderDirection((array)$metric) ?></div>
                   </div>
                 </div>
               <?php endforeach; ?>
             </div>
+            <?php if ($secondaryMetrics !== []): ?>
+              <h3 class="concentradores-section-title">Servicios y control</h3>
+              <div class="concentradores-secondary-metrics" data-count="<?= count($secondaryMetrics) ?>">
+                <?php foreach ($secondaryMetrics as $metric): ?>
+                  <?php $metricKey = (string)($metric['key'] ?? ''); ?>
+                  <div class="concentradores-exec-metric <?= $e($metricClass((array)$metric)) ?>" data-metric="<?= $e($metricKey) ?>">
+                    <div class="concentradores-exec-metric-body">
+                      <div class="concentradores-exec-metric-label">
+                        <span data-field="label"><?= $e($metric['label'] ?? $metricKey) ?></span>
+                      </div>
+                      <div class="concentradores-exec-reading"><div class="concentradores-exec-metric-value" data-field="value"><?= $e($metric['formatted'] ?? '-') ?></div><?= $renderDirection((array)$metric) ?></div>
+                    </div>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            <?php endif; ?>
           <?php endif; ?>
         </article>
       <?php endforeach; ?>
@@ -456,18 +505,51 @@ $invertidoMetricGroups = [
 
   <script>
     const refreshMs = <?= (int)($meta['intervaloActualizacion'] ?? 60000) ?>;
+    const screenRotationMs = <?= max(1000, (int)($config['rotacion_pantallas_ms'] ?? 120000)) ?>;
+    const dashboardGrid = document.querySelector('.concentradores-exec-grid');
+    const screenTitle = document.querySelector('[data-screen-title]');
+    const screenCount = document.querySelector('[data-screen-count]');
+    const hasInvertidoScreen = Boolean(dashboardGrid?.querySelector('[data-concentrator="invertido"]'));
+    let invertidoVisible = new URLSearchParams(window.location.search).get('pantalla') === 'invertido' && hasInvertidoScreen;
+
+    function showScreen(showInvertido) {
+      invertidoVisible = Boolean(showInvertido && hasInvertidoScreen);
+      dashboardGrid?.classList.toggle('is-invertido-screen', invertidoVisible);
+      if (screenTitle) screenTitle.textContent = invertidoVisible ? 'Concentrador Invertido' : <?= json_encode($titulo, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+      if (screenCount) screenCount.textContent = invertidoVisible ? '1 equipo' : <?= json_encode(count($mainConcentradores) . ' equipos', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    }
+
+    showScreen(invertidoVisible);
+    if (hasInvertidoScreen) {
+      window.setInterval(() => showScreen(!invertidoVisible), screenRotationMs);
+    }
 
     function metricClass(metric) {
       const statusClass = metric?.status?.class || 'unavailable';
       return ['ok', 'warning', 'danger', 'neutral', 'info', 'unavailable'].includes(statusClass) ? statusClass : 'unavailable';
     }
 
-    function sourceIconClass(metric) {
-      return metric?.source === 'sqlserver' ? 'fa-gear' : 'fa-book-open';
-    }
+    function updateDirection(card, direction, adjustment) {
+      const cue = card?.querySelector('.concentradores-direction');
+      if (!cue) return;
 
-    function sourceTitle(metric) {
-      return metric?.source === 'sqlserver' ? 'SQL Server / AVEVA' : 'MySQL 105';
+      const validDirection = direction === 'up' || direction === 'down' ? direction : '';
+      const amount = validDirection ? String(adjustment || '') : '';
+      const action = validDirection === 'up' ? 'Subir' : (validDirection === 'down' ? 'Bajar' : '');
+      const label = validDirection ? `${action} ${amount} para llegar a verde` : 'En rango verde';
+
+      cue.classList.toggle('is-visible', validDirection !== '');
+      cue.classList.toggle('direction-up', validDirection === 'up');
+      cue.classList.toggle('direction-down', validDirection === 'down');
+      cue.title = label;
+      cue.setAttribute('aria-label', label);
+
+      const arrow = cue.querySelector('[data-direction-arrow]');
+      const actionNode = cue.querySelector('[data-direction-action]');
+      const valueNode = cue.querySelector('[data-direction-value]');
+      if (arrow) arrow.textContent = validDirection === 'up' ? '↑' : (validDirection === 'down' ? '↓' : '');
+      if (actionNode) actionNode.textContent = action;
+      if (valueNode) valueNode.textContent = amount;
     }
 
     function updateWarnings(warnings) {
@@ -504,16 +586,10 @@ $invertidoMetricGroups = [
 
           card.className = `concentradores-exec-metric ${metricClass(metric)}`;
           const label = card.querySelector('[data-field="label"]');
-          const sourceIcon = card.querySelector('[data-field="source-icon"]');
           const value = card.querySelector('[data-field="value"]');
-          const status = card.querySelector('[data-field="status"]');
           if (label) label.textContent = metric.label || metric.key || '';
-          if (sourceIcon) {
-            sourceIcon.title = sourceTitle(metric);
-            sourceIcon.innerHTML = `<i class="fa-solid ${sourceIconClass(metric)}"></i>`;
-          }
           if (value) value.textContent = metric.formatted || '-';
-          if (status) status.textContent = metric?.status?.label || 'Sin dato';
+          updateDirection(card, metric.direction, metric.adjustment);
         });
       });
     }
