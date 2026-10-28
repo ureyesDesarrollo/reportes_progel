@@ -9,9 +9,10 @@ $config = require __DIR__ . '/config.php';
 $report = require __DIR__ . '/build_report.php';
 $equipment = [];
 
+// Convierte el arreglo usado por la vista al formato compacto del refresco AJAX.
 foreach ((array)($report['equipos'] ?? []) as $item) {
     $fields = [];
-    foreach (array_merge((array)($item['principales'] ?? []), (array)($item['secundarios'] ?? [])) as $field) {
+    foreach ((array)($item['principales'] ?? []) as $field) {
         $fields[(string)($field['key'] ?? '')] = $field;
     }
     $equipment[(string)($item['key'] ?? '')] = [
@@ -35,6 +36,8 @@ $response = [
         'adjustment' => (string)($feed['adjustment'] ?? ''),
     ],
     'equipment' => $equipment,
+    'correctiveActions' => array_values((array)($report['corrective_actions'] ?? [])),
+    'correctiveWarning' => (string)($report['corrective_warning'] ?? ''),
 ];
 
 if (empty($report['ok'])) {

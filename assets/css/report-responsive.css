@@ -1,0 +1,186 @@
+/*
+ * Escala visual común para tableros operativos.
+ *
+ * Cada reporte debe cargar este archivo después de sus estilos locales y usar
+ * data-report-responsive en su contenedor principal. Las capturas conservan
+ * sus tamaños propios y no reciben esta ampliación.
+ */
+
+@media (min-width: 1600px) and (min-height: 1201px) {
+  body:not(.capture-mode) [data-report-responsive] .report-scale-title {
+    font-size: clamp(52px, 3.2vw, 82px);
+  }
+
+  body:not(.capture-mode) [data-report-responsive] .report-scale-label {
+    font-size: clamp(36px, 2.5vw, 64px);
+  }
+
+  body:not(.capture-mode) [data-report-responsive] .report-scale-value {
+    font-size: clamp(58px, 4.1vw, 104px);
+  }
+
+  /* Cocedores */
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-header h1 {
+    font-size: clamp(52px, 2.7vw, 68px);
+  }
+
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-header p {
+    font-size: clamp(19px, 1vw, 25px);
+  }
+
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-summary-card .cc-label {
+    font-size: clamp(24px, 1.25vw, 31px);
+  }
+
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-summary-card .cc-value {
+    font-size: clamp(48px, 2.6vw, 66px);
+  }
+
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-unit-head h2 {
+    font-size: clamp(30px, 1.55vw, 39px);
+  }
+
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-state {
+    font-size: clamp(13px, .75vw, 18px);
+  }
+
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-label {
+    font-size: clamp(19px, 1vw, 25px);
+  }
+
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-value {
+    font-size: clamp(43px, 2.35vw, 59px);
+  }
+
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-direction {
+    min-width: clamp(112px, 6.2vw, 150px);
+    min-height: clamp(64px, 3.7vw, 88px);
+  }
+
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-direction > i {
+    font-size: clamp(48px, 2.7vw, 66px);
+  }
+
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-direction em {
+    font-size: clamp(12px, .68vw, 16px);
+  }
+
+  body:not(.capture-mode) .cocedores-report[data-report-responsive] .cc-direction b {
+    font-size: clamp(26px, 1.45vw, 36px);
+  }
+
+  /* Clarificadores */
+  body:not(.capture-mode) .clarificador-report[data-report-responsive] .cl-main-header h1 {
+    font-size: clamp(56px, 3vw, 76px);
+  }
+
+  body:not(.capture-mode) .clarificador-report[data-report-responsive] .cl-main-header p {
+    font-size: clamp(19px, 1vw, 25px);
+  }
+
+  body:not(.capture-mode) .clarificador-report[data-report-responsive] .cl-label {
+    font-size: clamp(24px, 1.35vw, 34px);
+  }
+
+  body:not(.capture-mode) .clarificador-report[data-report-responsive] .cl-value {
+    font-size: clamp(70px, 4.2vw, 104px);
+  }
+
+  body:not(.capture-mode) .clarificador-report[data-report-responsive] .cl-direction {
+    min-width: clamp(140px, 7vw, 176px);
+    min-height: clamp(82px, 4.2vw, 104px);
+  }
+
+  body:not(.capture-mode) .clarificador-report[data-report-responsive] .cl-direction > i {
+    font-size: clamp(62px, 3.2vw, 80px);
+  }
+
+  body:not(.capture-mode) .clarificador-report[data-report-responsive] .cl-direction em {
+    font-size: clamp(15px, .78vw, 19px);
+  }
+
+  body:not(.capture-mode) .clarificador-report[data-report-responsive] .cl-direction b {
+    font-size: clamp(34px, 1.75vw, 44px);
+  }
+
+  body:not(.capture-mode) .clarificador-report[data-report-responsive] .cl-integration-group > h2 {
+    font-size: clamp(20px, 1.15vw, 28px);
+  }
+
+  /* Concentradores */
+  body:not(.capture-mode) .dashboard[data-report-responsive] {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  body:not(.capture-mode) .dashboard[data-report-responsive] .concentradores-heading h1 {
+    font-size: clamp(48px, 2.5vw, 64px);
+  }
+
+  body:not(.capture-mode) .dashboard[data-report-responsive] .concentradores-heading p {
+    font-size: clamp(18px, 1vw, 25px);
+  }
+
+  body:not(.capture-mode) .dashboard[data-report-responsive] .concentradores-exec-head h2 {
+    font-size: clamp(38px, 2vw, 50px);
+  }
+
+  body:not(.capture-mode) .dashboard[data-report-responsive] .concentradores-exec-head span {
+    font-size: clamp(13px, .72vw, 18px);
+  }
+
+  body:not(.capture-mode) .dashboard[data-report-responsive] .concentradores-exec-metric {
+    min-height: clamp(96px, 5.2vw, 130px);
+    gap: 11px;
+    padding: 10px 12px;
+  }
+
+  body:not(.capture-mode) .dashboard[data-report-responsive] .concentradores-exec-metric > i {
+    width: clamp(38px, 2vw, 50px);
+    height: clamp(38px, 2vw, 50px);
+    font-size: clamp(19px, 1vw, 25px);
+  }
+
+  body:not(.capture-mode) .dashboard[data-report-responsive] .concentradores-exec-metric-label {
+    font-size: clamp(14px, .78vw, 19px);
+  }
+
+  body:not(.capture-mode) .dashboard[data-report-responsive] .concentradores-exec-metric-value {
+    font-size: clamp(30px, 1.75vw, 44px);
+  }
+
+  body:not(.capture-mode) .dashboard[data-report-responsive] .concentradores-exec-metric-status {
+    font-size: clamp(11px, .58vw, 14px);
+  }
+
+  /* Secadores: amplía sin alterar el número de tarjetas ni el modo captura. */
+  body:not(.capture-mode) .dryer-dashboard[data-report-responsive] .dryer-header h1 {
+    font-size: clamp(58px, 3.2vw, 80px);
+  }
+
+  body:not(.capture-mode) .dryer-dashboard[data-report-responsive] .tunnel-heading h2 {
+    font-size: clamp(52px, 2.8vw, 70px);
+  }
+
+  body:not(.capture-mode) .dryer-dashboard[data-report-responsive] .utility-field .dryer-label {
+    font-size: clamp(20px, 1.05vw, 27px);
+  }
+
+  body:not(.capture-mode) .dryer-dashboard[data-report-responsive] .utility-field .dryer-value {
+    font-size: clamp(48px, 2.5vw, 62px);
+  }
+
+  body:not(.capture-mode) .dryer-dashboard[data-report-responsive] .room-field .dryer-label {
+    font-size: clamp(28px, 1.4vw, 36px);
+  }
+
+  body:not(.capture-mode) .dryer-dashboard[data-report-responsive] .room-field .dryer-value {
+    font-size: clamp(72px, 3.6vw, 92px);
+  }
+
+  body:not(.capture-mode) .dryer-dashboard[data-report-responsive] .room-field .dryer-direction-arrow {
+    font-size: clamp(92px, 4vw, 104px);
+  }
+}
+

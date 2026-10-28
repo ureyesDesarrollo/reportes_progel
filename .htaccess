@@ -1,0 +1,7 @@
+Options -Indexes
+DirectoryIndex index.php index.html
+
+# Impide descargar .env y cualquier otro archivo oculto desde Apache.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>

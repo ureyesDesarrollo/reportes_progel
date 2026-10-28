@@ -2,6 +2,5 @@
 
 declare(strict_types=1);
 
-header('Location: ./reports/votators/');
+header('Location: ./reports/');
 exit;
-

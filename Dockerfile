@@ -12,6 +12,7 @@ RUN apt-get update \
     > /etc/apt/sources.list.d/microsoft-prod.list \
   && apt-get update \
   && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
+  && docker-php-ext-install pdo_mysql \
   && pecl install sqlsrv pdo_sqlsrv \
   && docker-php-ext-enable sqlsrv pdo_sqlsrv \
   && a2enmod headers rewrite \
